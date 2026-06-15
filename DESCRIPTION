@@ -1,0 +1,15 @@
+Package: RGridLocal
+Type: Package
+Title: Browser Spreadsheet Backed by the Local R Interpreter
+Version: 0.1.0
+Authors@R: c(person("Alek", "Rutkowski", role = c("aut", "cre"), email = "alek.rutkowski@gmail.com"))
+Description: Runs the RGrid browser spreadsheet from localhost and evaluates spreadsheet formulas in the standard R interpreter installed on the user's machine. The browser interface and RGrid workbook import/export format remain compatible with RGrid.
+License: MIT
+Encoding: UTF-8
+Imports:
+    httpuv,
+    jsonlite,
+    grDevices,
+    tools,
+    utils
+NeedsCompilation: no

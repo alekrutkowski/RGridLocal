@@ -1,0 +1,17 @@
+{
+  "name": "RGrid-local-local-local",
+  "short_name": "RGrid",
+  "description": "A browser spreadsheet powered by a local R session",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#18543a",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

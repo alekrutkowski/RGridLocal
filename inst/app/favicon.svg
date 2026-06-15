@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RGrid">
+  <rect width="64" height="64" rx="13" fill="#18543a"/>
+  <rect x="8" y="8" width="48" height="48" rx="10" fill="#fff"/>
+  <path d="M19 45V18h13.5c7.2 0 11.5 3.8 11.5 9.7 0 4-2.1 7-5.8 8.5L46 45h-8.2l-6.4-7.7h-5V45H19Zm7.4-13.5h5.3c3.1 0 4.8-1.3 4.8-3.7s-1.7-3.7-4.8-3.7h-5.3v7.4Z" fill="#18543a"/>
+</svg>

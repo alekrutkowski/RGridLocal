@@ -1,0 +1,11 @@
+{
+  "name": "rgrid-local-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser app for RGrid-local with formulas evaluated by a localhost R backend",
+  "type": "module",
+  "scripts": {
+    "check": "node --check app.js",
+    "test": "npm run check"
+  }
+}

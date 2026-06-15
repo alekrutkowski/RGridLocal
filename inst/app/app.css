@@ -1,0 +1,955 @@
+:root {
+  --green-900: #123d2a;
+  --green-800: #18543a;
+  --green-700: #1f6f4b;
+  --green-600: #268a5d;
+  --green-100: #e9f5ee;
+  --green-050: #f4faf6;
+  --ink: #17221c;
+  --muted: #65736b;
+  --line: #d6ddd9;
+  --line-strong: #b5c0ba;
+  --surface: #ffffff;
+  --surface-2: #f6f8f7;
+  --header: #eef2f0;
+  --selection: #dff1e7;
+  --selection-border: #168653;
+  --error: #b42318;
+  --shadow: 0 10px 30px rgba(20, 45, 32, 0.12);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { color: var(--ink); background: #edf2ef; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+code, pre, .formula-input, .formula-highlight, .cell { font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; }
+
+.app-shell {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 60px 44px auto 27px minmax(0, 1fr) 38px;
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  color: white;
+  background: linear-gradient(115deg, var(--green-900), var(--green-700));
+}
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center;
+  color: var(--green-900); background: white;
+  font-weight: 800; font-style: italic; font-family: Georgia, serif;
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+}
+.brand-name { font-weight: 750; letter-spacing: .01em; }
+.brand-subtitle { font-size: 11px; opacity: .76; margin-top: 1px; }
+.runtime-status { display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: .94; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: #b7c3bd; box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
+.status-dot.loading { background: #ffd166; animation: pulse 1.1s infinite alternate; }
+.status-dot.ready { background: #5ee0a0; }
+.status-dot.error { background: #ff887d; }
+@keyframes pulse { to { opacity: .45; } }
+
+.ribbon {
+  min-width: 0;
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  overflow-x: auto;
+}
+.ribbon-group { display: flex; gap: 4px; align-items: center; padding: 0 9px; border-right: 1px solid var(--line); }
+.ribbon-group:first-child { padding-left: 0; }
+.ribbon-group:last-child { border-right: 0; }
+.ribbon button, .commit-button, .dialog button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #243129;
+  background: transparent;
+}
+.ribbon button:hover, .dialog button:hover { border-color: var(--line-strong); background: white; }
+.ribbon button:active { transform: translateY(1px); }
+.ribbon button:disabled { cursor: default; opacity: .42; transform: none; }
+.export-group button { background: var(--green-100); color: var(--green-900); }
+
+.formula-strip {
+  display: grid;
+  grid-template-columns: 110px 34px minmax(180px, 1fr) 38px;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line-strong);
+  background: white;
+}
+.name-box, .formula-input {
+  border: 0;
+  outline: none;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: white;
+}
+.name-box { border-right: 1px solid var(--line); text-align: center; font-size: 12px; font-family: "Cascadia Code", Consolas, monospace; }
+.fx-badge { display: grid; place-items: center; border-right: 1px solid var(--line); color: var(--green-700); font-family: Georgia, serif; font-style: italic; font-weight: 700; }
+.formula-editor {
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  background: white;
+  overflow: hidden;
+}
+.formula-input, .formula-highlight {
+  width: 100%;
+  min-height: 40px;
+  max-height: min(65vh, 720px);
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 24px;
+  letter-spacing: normal;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+.formula-input {
+  position: relative;
+  z-index: 2;
+  display: block;
+  resize: vertical;
+  color: transparent;
+  caret-color: var(--ink);
+  background: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.formula-input::placeholder {
+  color: var(--muted);
+  opacity: .72;
+  -webkit-text-fill-color: var(--muted);
+}
+.formula-input::selection {
+  color: transparent;
+  background: rgba(66, 133, 244, .27);
+  -webkit-text-fill-color: transparent;
+}
+.formula-highlight {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  height: 100%;
+  pointer-events: none;
+  color: var(--ink);
+  background: white;
+  scrollbar-width: none;
+}
+.formula-highlight::-webkit-scrollbar { display: none; }
+.formula-highlight code { font: inherit; }
+.formula-input:focus { box-shadow: inset 0 -2px var(--selection-border); }
+.name-box:focus { box-shadow: inset 0 -2px var(--selection-border); }
+.rtok-formula { color: #64748b; font-weight: 700; }
+.rtok-comment { color: #6b7280; font-style: italic; }
+.rtok-string { color: #a33a24; }
+.rtok-number { color: #2457a7; }
+.rtok-keyword { color: #7c3aed; font-weight: 650; }
+.rtok-constant { color: #0b7285; font-weight: 600; }
+.rtok-function { color: #12633f; font-weight: 600; }
+.rtok-ref { color: #9b4b00; font-weight: 700; }
+.rtok-namespace { color: #6d4c9a; }
+.rtok-operator { color: #455a64; font-weight: 600; }
+.commit-button { margin: 5px; padding: 2px; color: white; background: var(--green-700); }
+.commit-button:hover { background: var(--green-800); }
+
+.formula-message {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 3px 12px 4px 178px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  background: #fbfcfb;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.formula-message.error { color: var(--error); background: #fff7f6; }
+.formula-message.info { color: #205493; background: #f5f9ff; }
+
+.work-area { min-width: 0; min-height: 0; overflow: hidden; background: white; display: flex; position: relative; }
+.grid-viewport { min-width: 0; flex: 1 1 auto; width: 100%; height: 100%; overflow: auto; outline: none; position: relative; }
+.plot-pane-resizer {
+  position: relative;
+  flex: 0 0 7px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  background: var(--surface-2);
+  outline: none;
+}
+.plot-pane-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  background: var(--line-strong);
+  transition: background .12s ease, box-shadow .12s ease;
+}
+.plot-pane-resizer:hover::after,
+.plot-pane-resizer:focus-visible::after,
+.plot-pane-resizer.dragging::after {
+  background: var(--selection-border);
+  box-shadow: 0 0 0 2px rgba(22, 134, 83, .15);
+}
+.plot-pane-resizer[hidden] { display: none; }
+.plot-pane {
+  flex: 0 0 var(--plot-pane-width, 390px);
+  width: var(--plot-pane-width, 390px);
+  min-width: 280px;
+  max-width: calc(100% - 120px);
+  height: 100%;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.plot-pane[hidden] { display: none; }
+.plot-pane-header {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: white;
+}
+.plot-pane-count { margin-left: 6px; color: var(--muted); font-size: 11px; }
+.plot-pane-close { border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; padding: 4px 8px; }
+.plot-list { height: calc(100% - 42px); overflow: auto; padding: 10px; display: grid; align-content: start; gap: 10px; }
+.plot-card { border: 1px solid var(--line); border-radius: 8px; background: white; overflow: hidden; box-shadow: 0 2px 8px rgba(20,45,32,.06); }
+.plot-card.selected { border-color: var(--selection-border); box-shadow: 0 0 0 2px rgba(22,134,83,.14); }
+.plot-card-header { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 7px 9px; border-bottom: 1px solid var(--line); font-size: 11px; }
+.plot-card-header code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plot-card-index { color: var(--muted); white-space: nowrap; }
+.plot-card canvas { display: block; width: 100%; height: auto; background: white; cursor: zoom-in; }
+.plot-empty { color: var(--muted); text-align: center; padding: 28px 12px; }
+.plot-resolution-editor { display: grid; gap: 14px; padding: 4px 0 8px; }
+.plot-resolution-editor label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.plot-resolution-editor select,
+.plot-resolution-editor input {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 8px 9px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+}
+.plot-resolution-size { display: grid; grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr) auto; gap: 9px; align-items: end; }
+.plot-resolution-size > span { padding-bottom: 9px; color: var(--muted); }
+.plot-resolution-unit { font-size: 12px; }
+.plot-resolution-help { min-height: 34px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.primary-button { color: white !important; background: var(--green-700) !important; }
+.primary-button:hover { background: var(--green-800) !important; }
+
+.grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; min-width: max-content; background: white; user-select: none; }
+.grid th, .grid td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.corner, .col-header, .row-header { position: sticky; z-index: 4; background: var(--header); color: #435149; font-size: 11px; font-weight: 600; text-align: center; }
+.corner { left: 0; top: 0; z-index: 7; width: 46px; min-width: 46px; height: 28px; }
+.col-header { top: 0; height: 28px; min-width: 104px; width: 104px; }
+.row-header { left: 0; z-index: 5; width: 46px; min-width: 46px; height: 25px; }
+.cell {
+  position: relative;
+  min-width: 104px;
+  width: 104px;
+  height: 25px;
+  max-width: 104px;
+  padding: 3px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  vertical-align: middle;
+  background: white;
+  cursor: cell;
+}
+.cell.number { text-align: right; }
+.cell.error { color: var(--error); font-weight: 650; }
+.cell.selected { background: var(--selection); }
+.cell.active { box-shadow: inset 0 0 0 2px var(--selection-border); z-index: 2; }
+.col-header.active-header,
+.row-header.active-header {
+  color: var(--green-900);
+  background: var(--selection);
+  box-shadow: inset 0 0 0 2px var(--selection-border);
+}
+.cell.formula-ref-target {
+  background: #eaf3ff;
+  box-shadow: inset 0 0 0 2px #2f6fbb;
+  z-index: 3;
+}
+.cell.formula-ref-target.selected { background: #dcecff; }
+.cell.spill { background: #f8fcfa; }
+.cell.has-plot::before {
+  content: "▥";
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  color: #7355a6;
+  font-size: 9px;
+  line-height: 1;
+}
+.cell.plot-only { color: #60458f; font-weight: 650; padding-left: 15px; }
+.cell.spill-anchor::after {
+  content: "";
+  position: absolute; top: 0; right: 0;
+  width: 0; height: 0;
+  border-top: 7px solid var(--green-600);
+  border-left: 7px solid transparent;
+}
+.cell.pending { color: var(--muted); font-style: italic; }
+.cell:hover { background: #f5faf7; }
+.cell.selected:hover { background: var(--selection); }
+
+.cell-tooltip {
+  position: fixed;
+  z-index: 80;
+  max-width: min(520px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgba(20,45,32,.18);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.cell-tooltip[hidden] { display: none; }
+
+.bottom-bar {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.sheet-tabs { height: 100%; display: flex; align-items: stretch; overflow-x: auto; padding-left: 8px; }
+.sheet-tab {
+  min-width: 92px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0 14px;
+  color: #445249;
+  background: transparent;
+}
+.sheet-tab.active { color: var(--green-900); background: white; box-shadow: inset 0 3px var(--green-600); font-weight: 650; }
+.selection-summary, .save-status { color: var(--muted); white-space: nowrap; }
+.save-status { padding-right: 12px; }
+
+.dialog { border: 0; padding: 0; border-radius: 12px; box-shadow: var(--shadow); max-width: min(720px, 92vw); }
+.dialog::backdrop { background: rgba(10, 24, 16, .35); backdrop-filter: blur(2px); }
+.dialog-card { min-width: min(680px, 90vw); max-height: 80vh; display: flex; flex-direction: column; background: white; }
+.dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--line); }
+.dialog-header h2 { margin: 0; font-size: 18px; }
+.dialog-header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.icon-button { font-size: 24px; line-height: 1; padding: 0 6px !important; }
+.name-editor { display: grid; grid-template-columns: 1fr 1.8fr auto; gap: 10px; align-items: end; padding: 14px 20px; background: var(--green-050); border-bottom: 1px solid var(--line); }
+.name-editor label { display: grid; gap: 5px; font-size: 11px; color: var(--muted); }
+.name-editor input { min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px; background: white; }
+.name-editor button { color: white; background: var(--green-700); }
+.names-list { overflow: auto; padding: 8px 20px; }
+.name-row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.name-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name-row button { color: var(--error); }
+.empty-state { color: var(--muted); text-align: center; padding: 22px; }
+.dialog-actions { display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--line); }
+.message-body { margin: 0; padding: 18px 20px; max-width: min(720px, 90vw); max-height: 55vh; overflow: auto; white-space: pre-wrap; color: #26332b; background: #f8faf9; }
+
+@media (max-width: 780px) {
+  .brand-subtitle { display: none; }
+  .app-shell { grid-template-rows: 54px 44px auto 27px minmax(0, 1fr) 38px; }
+  .formula-strip { grid-template-columns: 84px 30px minmax(120px, 1fr) 34px; }
+  .formula-message { padding-left: 12px; }
+  .selection-summary { display: none; }
+  .bottom-bar { grid-template-columns: 1fr auto; }
+  .name-editor { grid-template-columns: 1fr; }
+  .dialog-card { min-width: 90vw; }
+  .plot-pane-resizer { display: none !important; }
+  .plot-pane { position: absolute; right: 0; top: 0; bottom: 0; z-index: 12; width: min(var(--plot-pane-width, 390px), 92vw); min-width: 0; max-width: 92vw; box-shadow: -8px 0 22px rgba(20,45,32,.16); }
+}
+
+/* v5 interaction and presentation refinements */
+.title-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.title-link {
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: white;
+  background: rgba(255,255,255,.08);
+  font-size: 12px;
+}
+.title-link:hover { background: rgba(255,255,255,.17); }
+.ribbon button[aria-pressed="true"] { border-color: var(--selection-border); color: var(--green-900); background: var(--selection); }
+
+.formula-editor { min-height: 44px; padding-bottom: 7px; }
+.formula-input, .formula-highlight { min-height: 37px; padding-bottom: 11px; resize: none; }
+.formula-editor-resizer {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  cursor: ns-resize;
+  touch-action: none;
+  background: transparent;
+  outline: none;
+}
+.formula-editor-resizer::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 2px;
+  background: var(--line-strong);
+  opacity: .65;
+}
+.formula-editor-resizer:hover::after,
+.formula-editor-resizer:focus-visible::after,
+.formula-editor-resizer.dragging::after { height: 3px; background: var(--selection-border); opacity: 1; }
+.rtok-match { border-radius: 3px; color: #12263a; background: #ffe08a; box-shadow: inset 0 0 0 1px #d69e00; font-weight: 800; }
+.rtok-mismatch { border-radius: 3px; color: white; background: var(--error); }
+
+.plot-list {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+.plot-card.reveal { animation: plotReveal 1.1s ease-out; }
+@keyframes plotReveal { 0% { box-shadow: 0 0 0 4px rgba(22,134,83,.38); } 100% { box-shadow: 0 0 0 0 rgba(22,134,83,0); } }
+
+.plot-settings-dialog .dialog-card { min-width: min(600px, 90vw); }
+.plot-resolution-editor { padding: 16px 20px 10px; }
+.plot-resolution-editor > label { width: 100%; }
+.plot-resolution-editor select,
+.plot-resolution-editor input { min-width: 0; }
+.plot-resolution-size {
+  grid-template-columns: minmax(128px, 1fr) auto minmax(128px, 1fr) auto;
+  gap: 12px;
+  padding-right: 2px;
+}
+.plot-resolution-unit { justify-self: end; padding-right: 2px; }
+
+.busy-overlay {
+  position: fixed;
+  z-index: 1000;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d5d9d7;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #59615d;
+  background: rgba(245,246,246,.94);
+  box-shadow: 0 8px 24px rgba(25,35,30,.13);
+  font-size: 13px;
+  pointer-events: none;
+}
+.busy-overlay[hidden] { display: none; }
+.busy-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #d7dbd9;
+  border-top-color: #8c9691;
+  border-radius: 50%;
+  animation: busySpin .75s linear infinite;
+}
+@keyframes busySpin { to { transform: rotate(360deg); } }
+
+.object-dialog-card, .help-dialog-card { min-width: min(820px, 92vw); }
+.object-tree, .help-content { max-height: 64vh; overflow: auto; padding: 16px 20px; background: var(--surface); }
+.object-tree { font-family: "Cascadia Code", Consolas, monospace; font-size: 12px; }
+.object-dialog-actions { gap: 8px; }
+.dialog button:disabled { cursor: default; opacity: .5; }
+
+.ref-help-dialog { width: min(760px, 94vw); max-width: 94vw; }
+.ref-help-dialog-card { width: 100%; min-width: 0; max-width: none; }
+.ref-help-header { padding-block: 20px 16px; background: linear-gradient(135deg, var(--green-050), white 72%); }
+.ref-help-heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ref-help-icon {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: white;
+  background: linear-gradient(145deg, var(--green-600), var(--green-800));
+  box-shadow: 0 7px 18px rgba(18, 104, 65, .22);
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 750;
+}
+.ref-help-header code { color: var(--green-800); font-size: .96em; }
+.ref-help-content { display: grid; gap: 16px; padding: 20px; overflow: auto; background: var(--surface); }
+.ref-help-lead { margin: 0; font-size: 15px; line-height: 1.55; }
+.ref-help-content code {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--green-800);
+  background: var(--surface-2);
+  font-family: "Cascadia Code", Consolas, monospace;
+}
+.ref-help-examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ref-help-examples article {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.ref-help-examples article:last-child { grid-column: 1 / -1; }
+.ref-help-examples article code { width: max-content; max-width: 100%; font-weight: 750; }
+.ref-help-examples article span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.ref-help-note { padding: 13px 15px; border-left: 4px solid var(--green-600); border-radius: 7px; background: var(--green-050); line-height: 1.55; }
+.object-node { margin: 2px 0 2px 16px; }
+.object-node > summary { cursor: pointer; padding: 3px 5px; border-radius: 4px; }
+.object-node > summary:hover { background: var(--surface-2); }
+.object-leaf { display: grid; grid-template-columns: minmax(130px, auto) auto minmax(180px, 1fr); gap: 10px; padding: 3px 5px 3px 21px; }
+.object-label { color: var(--green-800); font-weight: 650; }
+.object-type { color: var(--muted); }
+.object-summary { white-space: pre-wrap; overflow-wrap: anywhere; }
+.help-content { display: grid; gap: 18px; }
+.help-content h3 { margin: 0 0 8px; font-size: 14px; }
+.help-content p { margin: 0; line-height: 1.5; }
+.help-content pre { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); overflow: auto; }
+.shortcut-grid { display: grid; grid-template-columns: max-content 1fr; gap: 7px 14px; align-items: center; }
+kbd { border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px; padding: 3px 7px; background: var(--surface-2); font-family: inherit; font-size: 11px; }
+.name-row { grid-template-columns: minmax(110px, 1fr) minmax(180px, 2fr) auto auto; }
+.name-row .edit-name-button { color: var(--green-800); }
+.cell.has-object::before { content: "◫"; color: #8a5a12; }
+
+html[data-theme="dark"] {
+  --green-900: #d8f3e3;
+  --green-800: #b8e4ca;
+  --green-700: #46a777;
+  --green-600: #54bd89;
+  --green-100: #193a2b;
+  --green-050: #132c21;
+  --ink: #e4e9e6;
+  --muted: #aab4ae;
+  --line: #3b4741;
+  --line-strong: #56645d;
+  --surface: #1b211e;
+  --surface-2: #242b27;
+  --header: #303833;
+  --selection: #244737;
+  --selection-border: #63c892;
+  --error: #ff8e86;
+  --shadow: 0 10px 30px rgba(0,0,0,.45);
+  color-scheme: dark;
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] .app-shell,
+html[data-theme="dark"] .work-area,
+html[data-theme="dark"] .grid,
+html[data-theme="dark"] .cell,
+html[data-theme="dark"] .formula-strip,
+html[data-theme="dark"] .formula-editor,
+html[data-theme="dark"] .formula-input,
+html[data-theme="dark"] .formula-highlight,
+html[data-theme="dark"] .name-box,
+html[data-theme="dark"] .plot-pane-header,
+html[data-theme="dark"] .plot-card,
+html[data-theme="dark"] .dialog-card,
+html[data-theme="dark"] .plot-resolution-editor select,
+html[data-theme="dark"] .plot-resolution-editor input,
+html[data-theme="dark"] .name-editor input { background: var(--surface); color: var(--ink); }
+html[data-theme="dark"] body { background: #111613; }
+html[data-theme="dark"] .ref-help-header { background: linear-gradient(135deg, #193a2b, var(--surface) 72%); }
+html[data-theme="dark"] .ref-help-content { background: var(--surface); }
+html[data-theme="dark"] .ref-help-note { background: #193a2b; }
+html[data-theme="dark"] .titlebar { color: #f5fff9; background: linear-gradient(115deg, #10291d, #18543a); }
+html[data-theme="dark"] .formula-message.error { background: #3a2020; }
+html[data-theme="dark"] .formula-message.info { background: #1d2c3b; color: #9bc8f7; }
+html[data-theme="dark"] .cell.spill { background: #202a25; }
+html[data-theme="dark"] .cell:hover { background: #2a342f; }
+html[data-theme="dark"] .cell.formula-ref-target { background: #24364c; }
+html[data-theme="dark"] .plot-card canvas { background: white; }
+html[data-theme="dark"] .busy-overlay { color: #c5ccc8; background: rgba(53,58,55,.96); border-color: #666e6a; }
+html[data-theme="dark"] .rtok-match { color: #16120a; background: #e6c65d; }
+html[data-theme="dark"] .rtok-comment { color: #9ca3af; }
+html[data-theme="dark"] .rtok-string { color: #f0a28f; }
+html[data-theme="dark"] .rtok-number { color: #86b7ff; }
+html[data-theme="dark"] .rtok-keyword { color: #c3a1ff; }
+html[data-theme="dark"] .rtok-constant { color: #70d3e3; }
+html[data-theme="dark"] .rtok-function { color: #70d39d; }
+html[data-theme="dark"] .rtok-ref { color: #ffbd72; }
+html[data-theme="dark"] .rtok-namespace { color: #c6a5e7; }
+html[data-theme="dark"] .rtok-operator { color: #c7d0cb; }
+
+@media (max-width: 780px) {
+  .title-actions .runtime-status { display: none; }
+  .title-link { padding: 5px 7px; }
+  .object-dialog-card, .help-dialog-card { min-width: 94vw; }
+  .plot-resolution-size { grid-template-columns: 1fr auto 1fr auto; }
+}
+html[data-theme="dark"] .ribbon button,
+html[data-theme="dark"] .commit-button,
+html[data-theme="dark"] .dialog button { color: var(--ink); }
+html[data-theme="dark"] .export-group button { color: #d9f7e5; background: #244b38; }
+html[data-theme="dark"] .commit-button { color: white; background: var(--green-700); }
+html[data-theme="dark"] .name-editor button,
+html[data-theme="dark"] .primary-button { color: white !important; }
+.title-link { text-decoration: none; cursor: pointer; }
+
+/* v6 editor, object marker, modal, and plot layout fixes */
+.formula-input,
+.formula-highlight {
+  margin: 0;
+  padding: 8px 10px 11px;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  font-style: normal;
+  font-variant: normal;
+  font-variant-ligatures: none;
+  line-height: 19px;
+  letter-spacing: 0;
+  word-spacing: 0;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.formula-highlight code {
+  display: block;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
+  white-space: pre;
+  tab-size: inherit;
+}
+html[data-theme="dark"] .formula-input {
+  color: transparent !important;
+  background: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+html[data-theme="dark"] .formula-highlight {
+  color: var(--ink) !important;
+  background: var(--surface) !important;
+}
+html[data-theme="dark"] .formula-highlight code { color: var(--ink) !important; }
+
+.object-dialog,
+.help-dialog {
+  width: min(1120px, 96vw);
+  max-width: 96vw;
+}
+.object-dialog-card,
+.help-dialog-card {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+.object-tree,
+.help-content {
+  width: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.object-node,
+.object-node > summary,
+.object-leaf,
+.object-summary,
+.help-content,
+.help-content pre {
+  min-width: 0;
+  max-width: 100%;
+}
+.object-node > summary { overflow-wrap: anywhere; }
+.object-leaf {
+  grid-template-columns: minmax(100px, .8fr) minmax(72px, .45fr) minmax(0, 2fr);
+}
+.help-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
+.cell .cell-value {
+  display: inline;
+  min-width: 0;
+}
+.cell .cell-value strong { font-weight: 750; }
+.cell .cell-value em { font-style: italic; }
+.cell.has-corner-marker { padding-left: 14px; }
+.cell.has-plot::before,
+.cell.has-object::before,
+.cell.has-generic-object::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), 0 0 0 1px rgba(20,30,25,.08);
+}
+.cell.has-generic-object::before { background: #3b82b8; }
+.cell.has-object::before { background: #d18a24; }
+.cell.has-plot::before { background: #7957ad; }
+.cell.plot-only { padding-left: 14px; }
+.cell.plot-only .cell-value { color: #60458f; font-weight: 650; }
+.plot-kind-superscript {
+  position: relative;
+  top: -.28em;
+  margin-left: 1px;
+  font-size: 7px;
+  line-height: 0;
+  letter-spacing: -.04em;
+  color: #7957ad;
+  font-weight: 800;
+}
+.cell.spill-anchor::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-top: 7px solid var(--green-600);
+  border-left: 7px solid transparent;
+}
+html[data-theme="dark"] .cell.plot-only .cell-value,
+html[data-theme="dark"] .plot-kind-superscript { color: #c4a7ed; }
+
+.plot-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.plot-card {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+.plot-card .plot-image {
+  display: block;
+  width: 100%;
+  height: auto !important;
+  max-width: 100%;
+  max-height: none;
+  aspect-ratio: var(--plot-aspect-ratio);
+  object-fit: contain;
+  background: white;
+  cursor: zoom-in;
+}
+
+@media (max-width: 780px) {
+  .object-dialog,
+  .help-dialog { width: 96vw; max-width: 96vw; }
+  .object-leaf { grid-template-columns: minmax(80px, .75fr) minmax(60px, .4fr) minmax(0, 1.7fr); }
+}
+.formula-sentinel { color: transparent; font: inherit; }
+
+/* v7: single-surface CodeMirror formula editor and reliable corner markers */
+.formula-highlight { display: none !important; }
+.formula-editor > .CodeMirror,
+.formula-codemirror {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--surface);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+}
+.formula-editor > .CodeMirror.CodeMirror-focused {
+  box-shadow: inset 0 -2px var(--selection-border);
+}
+.formula-editor .CodeMirror-scroll {
+  min-height: 100%;
+  padding-bottom: 7px;
+}
+.formula-editor .CodeMirror-lines { padding: 8px 0 11px; }
+.formula-editor .CodeMirror pre.CodeMirror-line,
+.formula-editor .CodeMirror pre.CodeMirror-line-like {
+  padding: 0 10px;
+  line-height: 19px;
+  font: inherit;
+  font-variant-ligatures: none;
+}
+.formula-editor .CodeMirror-code { line-height: 19px; }
+.formula-editor .CodeMirror-cursor { border-left: 1px solid var(--ink); }
+.formula-editor .CodeMirror-selected { background: rgba(66, 133, 244, .27); }
+.formula-editor .CodeMirror-placeholder { color: var(--muted); opacity: .72; }
+.formula-editor .cm-comment { color: #6b7280; font-style: italic; }
+.formula-editor .cm-string,
+.formula-editor .cm-string-2 { color: #a33a24; }
+.formula-editor .cm-number { color: #2457a7; }
+.formula-editor .cm-keyword { color: #7c3aed; font-weight: 650; }
+.formula-editor .cm-atom { color: #0b7285; font-weight: 600; }
+.formula-editor .cm-def,
+.formula-editor .cm-variable-2,
+.formula-editor .cm-variable-3 { color: #12633f; font-weight: 600; }
+.formula-editor .cm-operator { color: #455a64; font-weight: 600; }
+.formula-editor .CodeMirror-matchingbracket {
+  border-radius: 3px;
+  color: #12263a !important;
+  background: #ffe08a;
+  box-shadow: inset 0 0 0 1px #d69e00;
+  font-weight: 800;
+}
+.formula-editor .CodeMirror-nonmatchingbracket {
+  color: #8b1e17 !important;
+  background: #ffd7d2;
+  box-shadow: inset 0 0 0 1px #c83b31;
+}
+html[data-theme="dark"] .formula-editor > .CodeMirror,
+html[data-theme="dark"] .formula-codemirror {
+  color: var(--ink);
+  background: var(--surface);
+}
+html[data-theme="dark"] .formula-editor .CodeMirror-cursor { border-left-color: var(--ink); }
+html[data-theme="dark"] .formula-editor .CodeMirror-selected { background: rgba(92, 146, 214, .36); }
+html[data-theme="dark"] .formula-editor .cm-comment { color: #aab5af; }
+html[data-theme="dark"] .formula-editor .cm-string,
+html[data-theme="dark"] .formula-editor .cm-string-2 { color: #f1a08c; }
+html[data-theme="dark"] .formula-editor .cm-number { color: #91b9f0; }
+html[data-theme="dark"] .formula-editor .cm-keyword { color: #c5a2ff; }
+html[data-theme="dark"] .formula-editor .cm-atom { color: #7ed3df; }
+html[data-theme="dark"] .formula-editor .cm-def,
+html[data-theme="dark"] .formula-editor .cm-variable-2,
+html[data-theme="dark"] .formula-editor .cm-variable-3 { color: #88d9aa; }
+html[data-theme="dark"] .formula-editor .cm-operator { color: #c7d0cb; }
+html[data-theme="dark"] .formula-editor .CodeMirror-matchingbracket {
+  color: #16120a !important;
+  background: #e6c65d;
+}
+.formula-editor-resizer { z-index: 20; }
+
+.cell.spill-anchor::after { content: none !important; }
+.cell.spill-anchor {
+  background-image: linear-gradient(to bottom left, var(--green-600) 0 49%, transparent 51% 100%);
+  background-position: right top;
+  background-repeat: no-repeat;
+  background-size: 8px 8px;
+  background-origin: border-box;
+}
+
+/* v8: compact two-line ribbon, import controls, and A1/R1C1 display */
+.app-shell { grid-template-rows: 60px 68px auto 27px minmax(0, 1fr) 38px; }
+.ribbon { padding: 4px 8px; }
+.ribbon-group { gap: 3px; padding: 0 6px; }
+.ribbon button.ribbon-command {
+  min-width: 48px;
+  min-height: 58px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 3px 6px;
+  font-size: 10px;
+  line-height: 1.08;
+  text-align: center;
+  white-space: nowrap;
+}
+.ribbon-button-label { display: block; }
+.ribbon-icon {
+  min-height: 16px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--green-700);
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1;
+}
+.ribbon-icon-text { font-size: 10px; letter-spacing: -.02em; }
+.ribbon-icon-r { font-family: Georgia, serif; font-size: 12px; font-style: italic; }
+.export-group .ribbon-command { min-width: 82px; }
+.export-group .ribbon-icon { color: var(--green-800); }
+.fx-badge { text-decoration: none; cursor: help; }
+.fx-badge:hover, .fx-badge:focus-visible { color: var(--green-900); background: var(--green-100); outline: none; }
+
+/* Spill anchors use Excel-like top-left green triangles. */
+.cell.spill-anchor {
+  background-image: linear-gradient(to bottom right, var(--green-600) 0 49%, transparent 51% 100%);
+  background-position: left top;
+  background-repeat: no-repeat;
+  background-size: 8px 8px;
+  background-origin: border-box;
+}
+
+html[data-theme="dark"] .ribbon-icon { color: #78d6a1; }
+html[data-theme="dark"] .export-group .ribbon-icon { color: #b6f0cc; }
+html[data-theme="dark"] .fx-badge:hover,
+html[data-theme="dark"] .fx-badge:focus-visible { color: #c8f5d9; background: #244b38; }
+
+@media (max-width: 900px) {
+  .ribbon button.ribbon-command { min-width: 44px; padding-inline: 4px; font-size: 9.5px; }
+  .export-group .ribbon-command { min-width: 74px; }
+}
+
+@media (max-width: 620px) {
+  .ref-help-examples { grid-template-columns: 1fr; }
+  .ref-help-examples article:last-child { grid-column: auto; }
+  .ref-help-icon { width: 42px; height: 42px; border-radius: 11px; }
+}
+
+/* v9 blank-start and example-workbook title action */
+.title-link { white-space: nowrap; }
+@media (max-width: 920px) {
+  .title-actions { gap: 6px; }
+  #exampleWorkbookBtn {
+    max-width: 144px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.12;
+  }
+}
+@media (max-width: 620px) {
+  #themeBtn { display: none; }
+  #exampleWorkbookBtn { max-width: 122px; font-size: 11px; }
+}
