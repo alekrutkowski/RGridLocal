@@ -83,6 +83,7 @@ const runtime = {
   calculating: false,
   recalcRequested: false,
   recalcTimer: null,
+  forceRecalcRequested: false,
   packageStatus: new Map(),
 };
 
@@ -151,6 +152,7 @@ let computed = new Map();
 let spillOwners = new Map();
 let displayValues = new Map();
 let plotsByCell = new Map();
+let calculationState = createCalculationState();
 let cellElements = new Map();
 let previousSelectedAddresses = new Set();
 let previousActiveHeaderElements = [];
@@ -807,10 +809,7 @@ function restoreHistoryState(state) {
       r2: Math.max(1, Math.min(sheet.rows, state.selection?.r2 || state.selection?.r1 || 1)),
       c2: Math.max(1, Math.min(sheet.cols, state.selection?.c2 || state.selection?.c1 || 1)),
     };
-    computed = new Map();
-    spillOwners = new Map();
-    displayValues = new Map();
-    plotsByCell = new Map();
+    resetCalculationState();
     endFormulaEdit();
     renderSheetTabs();
     updateViewToggleButtons();
@@ -1243,7 +1242,7 @@ function applyPlotResolution() {
   updatePlotResolutionEditor();
   els.plotSettingsDialog.close();
   els.saveStatus.textContent = `Plot resolution: ${plotResolution.width} × ${plotResolution.height} px`;
-  scheduleRecalculation(0);
+  scheduleRecalculation(0, { force: true });
 }
 
 function clampPlotPaneWidth(width) {
@@ -1384,7 +1383,7 @@ function toggleWorkbookView(setting, label) {
   workbook.view[setting] = !workbook.view[setting];
   updateViewToggleButtons();
   scheduleSave();
-  scheduleRecalculation(0);
+  scheduleRecalculation(0, { force: true });
 }
 
 function clearFormulaReferenceHighlight() {
@@ -2209,9 +2208,14 @@ function scheduleSave() {
   }, 250);
 }
 
-function scheduleRecalculation(delay = 80) {
+function scheduleRecalculation(delay = 80, options = {}) {
+  if (options.force) runtime.forceRecalcRequested = true;
   clearTimeout(runtime.recalcTimer);
-  runtime.recalcTimer = setTimeout(() => recalculateWorkbook(), delay);
+  runtime.recalcTimer = setTimeout(() => {
+    const force = runtime.forceRecalcRequested;
+    runtime.forceRecalcRequested = false;
+    recalculateWorkbook({ force });
+  }, delay);
 }
 
 function allInputCells() {
@@ -2362,6 +2366,171 @@ async function ensurePackagesForExpression(input) {
   }
 }
 
+
+function createCalculationState() {
+  return {
+    initialized: false,
+    cellSignatures: new Map(),
+    dependencies: new Map(),
+    graphSignature: '',
+  };
+}
+
+function clearCalculatedMaps() {
+  computed = new Map();
+  spillOwners = new Map();
+  displayValues = new Map();
+  plotsByCell = new Map();
+}
+
+function resetCalculationState() {
+  clearCalculatedMaps();
+  calculationState = createCalculationState();
+}
+
+function rRuntime() {
+  return runtime.r || runtime.webR;
+}
+
+async function runtimeEvalVoid(code) {
+  const engine = rRuntime();
+  if (!engine) throw new Error('R runtime is unavailable.');
+  await engine.evalRVoid(code);
+}
+
+function runtimeReadyStatusText() {
+  if (runtime.r) return 'Local R ready';
+  return globalThis.crossOriginIsolated ? 'webR ready' : 'webR ready (GitHub Pages mode)';
+}
+
+function dependencySetSignature(dependencies) {
+  return [...(dependencies || new Set())].sort().join('\u001f');
+}
+
+function cloneDependencyMap(source) {
+  return new Map([...source.entries()].map(([key, value]) => [key, new Set(value)]));
+}
+
+function collectReferencedBindings(input, names, sheets, seenNames = new Set()) {
+  if (isPlainTextInput(input)) return;
+  const expression = expressionFromInput(input);
+  for (const refText of directRefCallsFromExpression(expression)) {
+    const qualified = splitQualifiedReference(String(refText));
+    if (qualified.sheetName) {
+      const sheet = sheetByName(qualified.sheetName);
+      sheets.add(`${qualified.sheetName.toLowerCase()}\u001f${sheet?.id || ''}`);
+      continue;
+    }
+    const local = qualified.local.replace(/#\s*$/, '').trim();
+    const named = lookupName(local);
+    if (!named) continue;
+    const lower = named.name.toLowerCase();
+    names.add(lower);
+    if (named.kind === 'expression' && !seenNames.has(lower)) {
+      seenNames.add(lower);
+      collectReferencedBindings(`=${named.expression}`, names, sheets, seenNames);
+    }
+  }
+}
+
+function workbookNameSignature(lowerName) {
+  const entry = Object.entries(workbook.names).find(([key]) => key.toLowerCase() === lowerName);
+  if (!entry) return [lowerName, null];
+  const [actualName, definition] = entry;
+  return [
+    lowerName,
+    actualName,
+    definition.kind || 'range',
+    definition.sheetId || '',
+    definition.ref || '',
+    definition.expression || '',
+  ];
+}
+
+function cellEvaluationSignature(node) {
+  const names = new Set();
+  const sheets = new Set();
+  if (!node.literal && !isPlainTextInput(node.input)) collectReferencedBindings(node.input, names, sheets);
+  return JSON.stringify({
+    input: String(node.input ?? ''),
+    literal: Boolean(node.literal),
+    names: [...names].sort().map(workbookNameSignature),
+    sheets: [...sheets].sort(),
+  });
+}
+
+function cellSignaturesForNodes(nodes) {
+  return new Map(nodes.map((node) => [node.key, cellEvaluationSignature(node)]));
+}
+
+function fingerprintValue(value) {
+  if (value === null || value === undefined) return ['null'];
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return ['number', 'NaN'];
+    if (value === Infinity) return ['number', 'Inf'];
+    if (value === -Infinity) return ['number', '-Inf'];
+  }
+  return [typeof value, value];
+}
+
+function fingerprintMatrix(matrix) {
+  const rows = Array.isArray(matrix) && matrix.length ? matrix : [[null]];
+  return rows.map((row) => (Array.isArray(row) ? row : [row]).map(fingerprintValue));
+}
+
+function resultFingerprint(result) {
+  if (!result) return 'missing';
+  return JSON.stringify({
+    error: result.error || null,
+    message: result.message || '',
+    matrix: fingerprintMatrix(result.matrix),
+    objectKind: result.objectKind || '',
+    plotKind: result.plotKind || '',
+    objectClass: result.objectClass || '',
+    preserveObject: Boolean(result.preserveObject),
+    tree: (result.tree || []).map((item) => [item.index, item.label, item.type, item.summary, item.parent]),
+  });
+}
+
+function resultMayHideReferenceRelevantState(result) {
+  if (!result || result.error) return false;
+  if (result.preserveObject) return true;
+  return ['vector', 'matrix', 'array', 'data.frame', 'list', 'function', 'environment', 'plot', 'other'].includes(result.objectKind || '');
+}
+
+function cellResultChanged(previous, current, evaluated) {
+  if (resultFingerprint(previous) !== resultFingerprint(current)) return true;
+  return Boolean(evaluated && resultMayHideReferenceRelevantState(current));
+}
+
+function replayCachedCell(node, cached) {
+  if (!cached) {
+    setCellError(node.key, '#REF!', 'Cached value is unavailable; recalculate the cell.');
+    return;
+  }
+  if (node.literal || isPlainTextInput(node.input)) {
+    placeMatrix(node, [[node.input]]);
+    return;
+  }
+  if (cached.error) {
+    setCellError(node.key, cached.error, cached.message || '');
+    if (cached.plots?.length) attachPlots(node.key, cached.plots);
+    return;
+  }
+  placeMatrix(node, cached.matrix || [[null]], cached);
+  if (cached.plots?.length) attachPlots(node.key, cached.plots);
+}
+
+async function removeRGridObjects(keys) {
+  const list = [...keys].filter(Boolean);
+  if (!list.length || !runtime.ready) return;
+  const chunkSize = 400;
+  for (let index = 0; index < list.length; index += chunkSize) {
+    const chunk = list.slice(index, index + chunkSize).map(rString).join(', ');
+    await runtimeEvalVoid(`if (exists(".rgrid_cells", envir = .GlobalEnv, inherits = FALSE)) {\n  rm(list = intersect(ls(.GlobalEnv$.rgrid_cells, all.names = TRUE), c(${chunk})), envir = .GlobalEnv$.rgrid_cells)\n}`);
+  }
+}
+
 function dependencyGraph(previousSpills) {
   const nodes = allInputCells();
   const nodeByKey = new Map(nodes.map((node) => [node.key, node]));
@@ -2420,48 +2589,92 @@ function topologicalOrder(graph) {
   return { order, cycleKeys };
 }
 
-async function recalculateWorkbook() {
+async function recalculateWorkbook(options = {}) {
+  const force = Boolean(options.force);
   if (!runtime.ready) {
     refreshGridValues();
     return;
   }
   if (runtime.calculating) {
     runtime.recalcRequested = true;
+    if (force) runtime.forceRecalcRequested = true;
     return;
   }
   runtime.calculating = true;
   runtime.recalcRequested = false;
   resizedSheetIds = new Set();
   setRuntimeStatus('Calculating…', 'loading');
+
+  const previousComputed = new Map(computed);
+  const previousSignatures = new Map(calculationState.cellSignatures);
+  const previousDependencies = cloneDependencyMap(calculationState.dependencies);
+  const forceFull = force || !calculationState.initialized;
+  const currentNodes = allInputCells();
+  const currentSignatures = cellSignaturesForNodes(currentNodes);
+  const currentKeys = new Set(currentNodes.map((node) => node.key));
+  const previousKeys = new Set([...previousSignatures.keys(), ...previousComputed.keys()]);
+  const removedKeys = new Set([...previousKeys].filter((key) => !currentKeys.has(key)));
+  const baseDirtyKeys = new Set();
+
+  for (const node of currentNodes) {
+    if (forceFull || previousSignatures.get(node.key) !== currentSignatures.get(node.key)) baseDirtyKeys.add(node.key);
+  }
+
   try {
-    await runtime.r.evalRVoid('.rgrid_cells <- new.env(hash = TRUE, parent = emptyenv())');
+    if (forceFull) await runtimeEvalVoid('.rgrid_cells <- new.env(hash = TRUE, parent = emptyenv())');
+    else await removeRGridObjects(new Set([...removedKeys, ...baseDirtyKeys]));
+
     let priorSpills = new Map(spillOwners);
+    let finalGraph = null;
     for (let pass = 0; pass < 3; pass += 1) {
-      if (pass > 0) await runtime.r.evalRVoid('.rgrid_cells <- new.env(hash = TRUE, parent = emptyenv())');
       const graph = dependencyGraph(priorSpills);
+      finalGraph = graph;
       const result = topologicalOrder(graph);
-      computed = new Map();
-      spillOwners = new Map();
-      displayValues = new Map();
-      plotsByCell = new Map();
+      const passDirtyKeys = new Set(baseDirtyKeys);
+
+      for (const node of graph.nodes) {
+        const deps = graph.deps.get(node.key) || new Set();
+        if (forceFull || dependencySetSignature(previousDependencies.get(node.key)) !== dependencySetSignature(deps)) passDirtyKeys.add(node.key);
+        if (!previousComputed.has(node.key) || previousComputed.get(node.key)?.error === '#SPILL!') passDirtyKeys.add(node.key);
+      }
+      if (!forceFull) await removeRGridObjects(passDirtyKeys);
+
+      clearCalculatedMaps();
+      const changedValueKeys = new Set();
 
       for (const key of result.cycleKeys) {
         setCellError(key, '#CYCLE!', 'Circular reference');
+        if (cellResultChanged(previousComputed.get(key), computed.get(key), passDirtyKeys.has(key))) changedValueKeys.add(key);
       }
+
       for (const node of result.order) {
-        await evaluateAndPlaceCell(node);
+        const deps = graph.deps.get(node.key) || new Set();
+        const dependencyValueChanged = [...deps].some((key) => changedValueKeys.has(key));
+        const previous = previousComputed.get(node.key);
+        const mustEvaluate = forceFull || passDirtyKeys.has(node.key) || dependencyValueChanged || !previous;
+        if (mustEvaluate) await evaluateAndPlaceCell(node);
+        else replayCachedCell(node, previous);
+        if (cellResultChanged(previous, computed.get(node.key), mustEvaluate)) changedValueKeys.add(node.key);
       }
+
       const nextGraph = dependencyGraph(spillOwners);
+      finalGraph = nextGraph;
       if (graphSignature(nextGraph) === graphSignature(graph)) break;
       priorSpills = new Map(spillOwners);
     }
+
+    calculationState.initialized = true;
+    calculationState.cellSignatures = currentSignatures;
+    calculationState.dependencies = cloneDependencyMap(finalGraph?.deps || new Map());
+    calculationState.graphSignature = finalGraph ? graphSignature(finalGraph) : '';
+
     if (resizedSheetIds.has(activeSheet().id)) buildGrid();
     else {
       refreshGridValues();
       refreshSelection(true);
     }
     if (resizedSheetIds.size) scheduleSave();
-    setRuntimeStatus('Local R ready', 'ready');
+    setRuntimeStatus(runtimeReadyStatusText(), 'ready');
   } catch (error) {
     console.error(error);
     setRuntimeStatus('Calculation failed', 'error');
@@ -2967,6 +3180,7 @@ function renameActiveSheet() {
   renderSheetTabs();
   scheduleSave();
   renderNamesList();
+  scheduleRecalculation();
 }
 
 function deleteActiveSheet() {
@@ -3873,10 +4087,7 @@ function importAnnotatedR(text) {
   const json = base64ToUtf8(chunks.join(''));
   const restored = normalizeWorkbook(JSON.parse(json));
   workbook = restored;
-  computed = new Map();
-  spillOwners = new Map();
-  displayValues = new Map();
-  plotsByCell = new Map();
+  resetCalculationState();
   selection = { r1: 1, c1: 1, r2: 1, c2: 1 };
   renderSheetTabs();
   updateViewToggleButtons();
@@ -4111,7 +4322,7 @@ function handleGridKeydown(event) {
   if (key === 'Enter') { event.preventDefault(); setSelection(selection.r2 + (shiftKey ? -1 : 1), selection.c2); return; }
   if (key === 'Tab') { event.preventDefault(); setSelection(selection.r2, selection.c2 + (shiftKey ? -1 : 1)); return; }
   if (key === 'Delete' || key === 'Backspace') { event.preventDefault(); clearSelection(); return; }
-  if (key === 'F9') { event.preventDefault(); scheduleRecalculation(0); return; }
+  if (key === 'F9') { event.preventDefault(); scheduleRecalculation(0, { force: true }); return; }
   if (key === 'F2') {
     event.preventDefault();
     focusFormulaEditor();
@@ -4373,10 +4584,7 @@ function bindEvents() {
     recordHistory(historyLabel);
     endFormulaEdit();
     workbook = nextWorkbook;
-    computed = new Map();
-    spillOwners = new Map();
-    displayValues = new Map();
-    plotsByCell = new Map();
+    resetCalculationState();
     selection = { r1: 1, c1: 1, r2: 1, c2: 1 };
     renderSheetTabs();
     updateViewToggleButtons();
