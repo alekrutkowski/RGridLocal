@@ -1,6 +1,6 @@
 # RGridLocal
 
-RGridLocal is an R package version of [RGrid](https://github.com/alekrutkowski/RGrid). It keeps the same browser spreadsheet interface and workbook/R-script format, but formulas are evaluated by the [standard R interpreter](https://www.r-project.org/) that starts the [localhost](https://simple.wikipedia.org/wiki/Localhost) server instead of by [webR](https://docs.r-wasm.org/).
+RGridLocal is an R package version of **[RGrid](https://github.com/alekrutkowski/RGrid)**. It keeps the same browser spreadsheet interface and workbook/R-script format, but formulas are evaluated by the [standard R interpreter](https://www.r-project.org/) that starts the [localhost](https://simple.wikipedia.org/wiki/Localhost) server instead of by [webR](https://docs.r-wasm.org/).
 
 ## Install and open
 
